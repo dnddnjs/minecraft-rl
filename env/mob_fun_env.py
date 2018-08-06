@@ -10,15 +10,6 @@ ARENA_WIDTH = 60
 ARENA_BREADTH = 60
 MOB_TYPE = "Endermite"  # Change for fun, but note that spawning conditions have to be correct - eg spiders will require darker conditions.
 
-# Display parameters:
-CANVAS_BORDER = 20
-CANVAS_WIDTH = 400
-CANVAS_HEIGHT = CANVAS_BORDER + (
-            (CANVAS_WIDTH - CANVAS_BORDER) * ARENA_BREADTH / ARENA_WIDTH)
-CANVAS_SCALEX = old_div((CANVAS_WIDTH - CANVAS_BORDER), ARENA_WIDTH)
-CANVAS_SCALEY = old_div((CANVAS_HEIGHT - CANVAS_BORDER), ARENA_BREADTH)
-CANVAS_ORGX = old_div(-ARENA_WIDTH, CANVAS_SCALEX)
-CANVAS_ORGY = old_div(-ARENA_BREADTH, CANVAS_SCALEY)
 
 # Agent parameters:
 agent_stepsize = 1

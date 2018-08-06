@@ -1,6 +1,7 @@
 import numpy as np
 from env import env
 from utils.utils import drawMobs
+import cv2
 
 
 env = env.MinecraftEnv()
@@ -9,6 +10,9 @@ env.init(
     continuous_discrete=False,
     videoResolution=[800, 600]
     )
+
+fourcc = cv2.VideoWriter_fourcc(*'XVID')
+video = cv2.VideoWriter('record/mob-fun.mp4', fourcc, 20, (800, 600))
 
 done = False
 for i in range(1):
@@ -27,14 +31,14 @@ for i in range(1):
 
         if "entities" in observation:
             entities = observation["entities"]
-            map = drawMobs(entities)
-            map = np.array(map)
-            print(map.shape)
-
+            drawMobs(entities)
         score += reward
         obs = np.reshape(obs, (600, 800, 3))
+        video.write(obs)
 
         if done:
+            cv2.destroyAllWindows()
+            video.release()
             print(str(i) + 'th episode score is ' + str(score))
             break
 
