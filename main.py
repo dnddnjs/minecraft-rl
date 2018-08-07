@@ -8,7 +8,7 @@ from collections import deque
 from hparams import HyperParams as hp
 from ppo_agent import train_model
 from copy import deepcopy
-from env import env
+from minecraft_env import env
 
 
 if __name__=="__main__":
@@ -59,7 +59,7 @@ if __name__=="__main__":
                 mu, std, _ = actor(torch.Tensor(history).unsqueeze(0))
                 action = get_action(mu, std)[0]
                 next_state, reward, done, info = env.step(action)
-                reward = np.clip(reward, -1, 1)
+                # reward = np.clip(reward, -1, 1)
 
                 observation = info['observation']
                 if observation is not None:
