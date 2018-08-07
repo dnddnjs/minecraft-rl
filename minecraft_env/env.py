@@ -5,7 +5,7 @@ import json
 import xml.etree.ElementTree as ET
 import gym
 from gym import spaces, error
-from env.mob_fun_env import *
+from minecraft_env.mob_fun_env import *
 
 reshape = False
 
