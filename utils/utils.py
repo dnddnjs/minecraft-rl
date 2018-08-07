@@ -32,6 +32,7 @@ def init_map():
                        borderwidth=0, highlightthickness=0, bg="black")
     canvas.pack()
     root.update()
+    return root, canvas
 
 
 def canvasX(x):
@@ -47,7 +48,7 @@ def canvasY(y):
 
 
 def drawMobs(entities):
-    img = Image.new("RGBA", (CANVAS_WIDTH, int(CANVAS_HEIGHT)), "black")
+    img = Image.new("RGB", (CANVAS_WIDTH, int(CANVAS_HEIGHT)), "black")
     img_pil = ImageDraw.Draw(img)
     img_pil.rectangle(((canvasX(old_div(-ARENA_WIDTH, 2)),
                         canvasY(old_div(-ARENA_BREADTH, 2))),
@@ -67,6 +68,7 @@ def drawMobs(entities):
                             canvasX(ent["x"]) + 4, canvasY(ent["z"]) + 4),
                             fill="#22ff44")
 
+    '''
     canvas.delete("all")
     canvas.create_rectangle(canvasX(old_div(-ARENA_WIDTH, 2)),
                             canvasY(old_div(-ARENA_BREADTH, 2)),
@@ -86,6 +88,8 @@ def drawMobs(entities):
                                canvasX(ent["x"]) + 4, canvasY(ent["z"]) + 4,
                                fill="#22ff44")
     root.update()
+    
+    '''
     return img
 
 

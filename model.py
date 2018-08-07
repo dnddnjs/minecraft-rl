@@ -9,7 +9,7 @@ class Actor(nn.Module):
     def __init__(self, num_outputs):
         self.num_outputs = num_outputs
         super(Actor, self).__init__()
-        self.conv1 = nn.Conv2d(in_channels=4,
+        self.conv1 = nn.Conv2d(in_channels=5,
                                out_channels=16,
                                kernel_size=8,
                                stride=4)
@@ -43,7 +43,7 @@ class Actor(nn.Module):
 class Critic(nn.Module):
     def __init__(self):
         super(Critic, self).__init__()
-        self.conv1 = nn.Conv2d(in_channels=4,
+        self.conv1 = nn.Conv2d(in_channels=5,
                                out_channels=16,
                                kernel_size=8,
                                stride=4)

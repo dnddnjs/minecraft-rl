@@ -35,7 +35,7 @@ if __name__=="__main__":
 
     episodes = 0
     if render_map:
-        init_map()
+        root, canvas = init_map()
 
     for iter in range(15000):
         actor.eval(), critic.eval()
@@ -49,23 +49,43 @@ if __name__=="__main__":
             history = np.stack((state, state, state, state), axis=2)
             history = np.reshape([history], (84, 84, 4))
 
+            for i in range(3):
+                action = env.action_space.sample()
+                next_state, reward, done, info = env.step(action)
+                next_state = pre_process(next_state)
+                next_state = np.reshape(next_state, (84, 84, 1))
+                next_history = np.append(next_state, history[:, :, :3],
+                                         axis=2)
+
+            observation = info['observation']
+            if observation is not None:
+                if "entities" in observation:
+                    entities = observation["entities"]
+                    map = drawMobs(entities)
+                    map = np.array(map)
+                    map = pre_process(map)
+                    map = np.reshape(map, (84, 84, 1))
+
+            input = np.append(history, map, axis=2)
+
             score = 0
             prev_life = 20
             while True:
                 env.render(mode='rgb_array')
                 steps += 1
 
-                mu, std, _ = actor(torch.Tensor(history).unsqueeze(0))
+                mu, std, _ = actor(torch.Tensor(input).unsqueeze(0))
                 action = get_action(mu, std)[0]
                 next_state, reward, done, info = env.step(action)
-                # reward = np.clip(reward, -1, 1)
 
                 observation = info['observation']
                 if observation is not None:
-                    if render_map and "entities" in observation:
+                    if "entities" in observation:
                         entities = observation["entities"]
                         map = drawMobs(entities)
-
+                        map = np.array(map)
+                        map = pre_process(map)
+                        map = np.reshape(map, (84, 84, 1))
                     life = observation['entities'][0]['life']
                     if life < prev_life:
                         reward = reward + (life - prev_life)
@@ -74,12 +94,16 @@ if __name__=="__main__":
                 next_state = np.reshape(next_state, (84, 84, 1))
                 next_history = np.append(next_state, history[:, :, :3],
                                          axis=2)
+                input = np.append(next_history, map, axis=2)
+
                 if done:
                     mask = 0
                 else:
                     mask = 1
 
-                memory.push(history, np.array(action), reward*0.1, mask)
+                reward *= 0.1
+                reward += 0.1
+                memory.push(input, np.array(action), reward, mask)
 
                 score += reward
                 history = deepcopy(next_history)

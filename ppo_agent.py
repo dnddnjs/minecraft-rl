@@ -56,7 +56,7 @@ def train_model(actor, critic, batch, actor_optim, critic_optim):
     # ----------------------------
     # step 2: get value loss and actor loss and update actor & critic
     for epoch in range(3):
-        print('epoch is' + str(epoch))
+        print('epoch is ' + str(epoch))
         np.random.shuffle(arr)
 
         for i in range(n // hp.batch_size):
