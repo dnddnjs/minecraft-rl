@@ -37,12 +37,12 @@ def surrogate_loss(actor, advants, states, old_policy, actions, index):
     return surrogate, ratio
 
 
-def train_model(actor, critic, memory, actor_optim, critic_optim):
-    memory = np.array(memory)
-    states = list(memory[:, 0])
-    actions = list(memory[:, 1])
-    rewards = list(memory[:, 2])
-    masks = list(memory[:, 3])
+def train_model(actor, critic, batch, actor_optim, critic_optim):
+    states = batch.state
+    actions = batch.action
+    rewards = batch.reward
+    masks = batch.mask
+    print(states.shape)
     values = critic(to_tensor(states))
 
     # ----------------------------

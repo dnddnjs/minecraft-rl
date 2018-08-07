@@ -1,5 +1,5 @@
 import numpy as np
-from env import env
+from minecraft_env import env
 from utils.utils import drawMobs
 
 

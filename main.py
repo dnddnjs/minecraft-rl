@@ -4,11 +4,11 @@ import numpy as np
 import torch.optim as optim
 from model import Actor, Critic
 from utils.utils import get_action, pre_process, init_map, drawMobs
-from collections import deque
 from hparams import HyperParams as hp
 from ppo_agent import train_model
 from copy import deepcopy
 from minecraft_env import env
+from memory import Memory
 
 
 if __name__=="__main__":
@@ -39,8 +39,7 @@ if __name__=="__main__":
 
     for iter in range(15000):
         actor.eval(), critic.eval()
-        memory = deque()
-
+        memory = Memory()
         steps = 0
         scores = []
         while steps < 500:
@@ -80,7 +79,7 @@ if __name__=="__main__":
                 else:
                     mask = 1
 
-                memory.append([history, action, reward*0.1, mask])
+                memory.push(history, np.array(action), reward*0.1, mask)
 
                 score += reward
                 history = deepcopy(next_history)
@@ -92,7 +91,8 @@ if __name__=="__main__":
         score_avg = np.mean(scores)
         print('{} episode score is {:.2f}'.format(episodes, score_avg))
         actor.train(), critic.train()
-        train_model(actor, critic, memory, actor_optim, critic_optim)
+        batch = memory.sample()
+        train_model(actor, critic, batch, actor_optim, critic_optim)
 
         if iter % 100:
             score_avg = int(score_avg)
