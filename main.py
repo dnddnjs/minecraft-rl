@@ -1,23 +1,24 @@
 import os
-import gym
-import marlo
 import torch
 import numpy as np
 import torch.optim as optim
 from model import Actor, Critic
-from utils import get_action, pre_process
+from utils.utils import get_action, pre_process, init_map, drawMobs
 from collections import deque
 from hparams import HyperParams as hp
 from ppo_agent import train_model
 from copy import deepcopy
+from env import env
+
 
 if __name__=="__main__":
-    env = gym.make('MinecraftCliffWalking1-v0')
+    env = env.MinecraftEnv()
     env.init(allowContinuousMovement=["move", "turn"],
              continuous_discrete=False,
              videoResolution=[800, 600])
     env.seed(500)
     torch.manual_seed(500)
+    render_map = False
 
     num_inputs = env.observation_space.shape
     num_actions = len(env.action_names[0])
@@ -33,6 +34,8 @@ if __name__=="__main__":
                               weight_decay=hp.l2_rate)
 
     episodes = 0
+    if render_map:
+        init_map()
 
     for iter in range(15000):
         actor.eval(), critic.eval()
@@ -48,6 +51,7 @@ if __name__=="__main__":
             history = np.reshape([history], (84, 84, 4))
 
             score = 0
+            prev_life = 20
             while True:
                 env.render(mode='rgb_array')
                 steps += 1
@@ -55,8 +59,18 @@ if __name__=="__main__":
                 mu, std, _ = actor(torch.Tensor(history).unsqueeze(0))
                 action = get_action(mu, std)[0]
                 next_state, reward, done, info = env.step(action)
-                # print(info['number_of_rewards_since_last_state'])
                 reward = np.clip(reward, -1, 1)
+
+                observation = info['observation']
+                if observation is not None:
+                    if render_map and "entities" in observation:
+                        entities = observation["entities"]
+                        map = drawMobs(entities)
+
+                    life = observation['entities'][0]['life']
+                    if life < prev_life:
+                        reward = reward + (life - prev_life)
+
                 next_state = pre_process(next_state)
                 next_state = np.reshape(next_state, (84, 84, 1))
                 next_history = np.append(next_state, history[:, :, :3],
@@ -72,7 +86,7 @@ if __name__=="__main__":
                 history = deepcopy(next_history)
 
                 if done:
-                    print(steps)
+                    print('steps: ', steps, ' score: ', score)
                     break
             scores.append(score)
         score_avg = np.mean(scores)
