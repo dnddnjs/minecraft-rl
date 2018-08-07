@@ -3,8 +3,6 @@ from hparams import HyperParams as hp
 
 
 def get_gae(rewards, masks, values):
-    rewards = to_tensor(rewards)
-    masks = to_tensor(masks)
     returns = torch.zeros_like(rewards)
     advants = torch.zeros_like(rewards)
 
@@ -38,19 +36,18 @@ def surrogate_loss(actor, advants, states, old_policy, actions, index):
 
 
 def train_model(actor, critic, batch, actor_optim, critic_optim):
-    states = batch.state
-    actions = batch.action
-    rewards = batch.reward
-    masks = batch.mask
-    print(states.shape)
-    values = critic(to_tensor(states))
+    states = to_tensor(batch.state)
+    actions = to_tensor(batch.action)
+    rewards = to_tensor(batch.reward)
+    masks = to_tensor(batch.mask)
+    values = critic(states)
 
     # ----------------------------
     # step 1: get returns and GAEs and log probability of old policy
     returns, advants = get_gae(rewards, masks, values)
-    mu, std, logstd = actor(to_tensor(states))
-    old_policy = log_density(to_tensor(actions), mu, std, logstd)
-    old_values = critic(to_tensor(states))
+    mu, std, logstd = actor(states)
+    old_policy = log_density(actions, mu, std, logstd)
+    old_values = values.clone()
 
     criterion = torch.nn.MSELoss()
     n = len(states)
@@ -65,10 +62,10 @@ def train_model(actor, critic, batch, actor_optim, critic_optim):
         for i in range(n // hp.batch_size):
             batch_index = arr[hp.batch_size * i: hp.batch_size * (i + 1)]
             batch_index = to_tensor_long(batch_index)
-            inputs = to_tensor(states)[batch_index]
+            inputs = states[batch_index]
             returns_samples = returns.unsqueeze(1)[batch_index]
             advants_samples = advants.unsqueeze(1)[batch_index]
-            actions_samples = to_tensor(actions)[batch_index]
+            actions_samples = actions[batch_index]
             oldvalue_samples = old_values[batch_index].detach()
 
             loss, ratio = surrogate_loss(actor, advants_samples, inputs,
