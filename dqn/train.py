@@ -42,7 +42,7 @@ if __name__=="__main__":
         memory = Memory()
         steps = 0
         scores = []
-        while steps < 500:
+        while steps < 1000:
             episodes += 1
             state = env.reset()
             state = pre_process(state)
@@ -51,11 +51,11 @@ if __name__=="__main__":
 
             for i in range(3):
                 action = env.action_space.sample()
-                next_state, reward, done, info = env.step(action)
-                next_state = pre_process(next_state)
-                next_state = np.reshape(next_state, (84, 84, 1))
-                next_history = np.append(next_state, history[:, :, :3],
-                                         axis=2)
+                _, reward, done, info = env.step(action)
+                # next_state = pre_process(next_state)
+                # next_state = np.reshape(next_state, (84, 84, 1))
+                # next_history = np.append(next_state, history[:, :, :3],
+                 #                         axis=2)
 
             observation = info['observation']
             if observation is not None:
@@ -63,10 +63,12 @@ if __name__=="__main__":
                     entities = observation["entities"]
                     map = drawMobs(entities)
                     map = np.array(map)
-                    map = pre_process(map)
-                    map = np.reshape(map, (84, 84, 1))
+                    state = pre_process(map)
+                    # map = np.reshape(map, (84, 84, 1))
 
-            input = np.append(history, map, axis=2)
+            history = np.stack((state, state, state, state), axis=2)
+            history = np.reshape([history], (84, 84, 4))
+            # input = np.append(history, map, axis=2)
 
             score = 0
             prev_life = 20
@@ -74,9 +76,9 @@ if __name__=="__main__":
                 env.render(mode='rgb_array')
                 steps += 1
 
-                mu, std, _ = actor(torch.Tensor(input).unsqueeze(0))
+                mu, std, _ = actor(torch.Tensor(history).unsqueeze(0))
                 action = get_action(mu, std)[0]
-                next_state, reward, done, info = env.step(action)
+                _, reward, done, info = env.step(action)
 
                 observation = info['observation']
                 if observation is not None:
@@ -85,25 +87,27 @@ if __name__=="__main__":
                         map = drawMobs(entities)
                         map = np.array(map)
                         map = pre_process(map)
-                        map = np.reshape(map, (84, 84, 1))
+                        state = np.reshape(map, (84, 84, 1))
                     life = observation['entities'][0]['life']
                     if life < prev_life:
                         reward = reward + (life - prev_life)
 
-                next_state = pre_process(next_state)
-                next_state = np.reshape(next_state, (84, 84, 1))
-                next_history = np.append(next_state, history[:, :, :3],
+                # next_state = pre_process(next_state)
+                # next_state = np.reshape(next_state, (84, 84, 1))
+                next_history = np.append(state, history[:, :, :3],
                                          axis=2)
-                input = np.append(next_history, map, axis=2)
+                # input = np.append(next_history, map, axis=2)
+                reward *= 0.1
+                reward += 0.1
 
                 if done:
                     mask = 0
+                    reward = 0
                 else:
                     mask = 1
 
-                reward *= 0.1
-                reward += 0.1
-                memory.push(input, np.array(action), reward, mask)
+
+                memory.push(next_history, np.array(action), reward, mask)
 
                 score += reward
                 history = deepcopy(next_history)
