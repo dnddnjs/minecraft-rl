@@ -2,10 +2,10 @@ import os
 import torch
 import numpy as np
 import torch.optim as optim
-from model import Actor, Critic
-from utils.utils import get_action, pre_process, init_map, drawMobs
+from model import QNet
+from utils.utils import *
 from hparams import HyperParams as hp
-from ppo_agent import train_model
+from dqn_agent import train_model
 from copy import deepcopy
 from minecraft_env import env
 from memory import Memory
@@ -13,8 +13,7 @@ from memory import Memory
 
 if __name__=="__main__":
     env = env.MinecraftEnv()
-    env.init(allowContinuousMovement=["move", "turn"],
-             continuous_discrete=False,
+    env.init(allowDiscreteMovement=None, 
              videoResolution=[800, 600])
     env.seed(500)
     torch.manual_seed(500)
@@ -26,108 +25,89 @@ if __name__=="__main__":
     print('state size:', num_inputs)
     print('action size:', num_actions)
 
-    actor = Actor(num_actions)
-    critic = Critic()
+    model = QNet(num_actions)
+    model.apply(weights_init)
+    target_model = QNet(num_actions)
+    update_target_model(model, target_model)
+    model.train()
+    target_model.train()
 
-    actor_optim = optim.Adam(actor.parameters(), lr=hp.actor_lr)
-    critic_optim = optim.Adam(critic.parameters(), lr=hp.critic_lr,
-                              weight_decay=hp.l2_rate)
+    optimizer = optim.Adam(model.parameters(), lr=hp.lr, 
+                           weight_decay=hp.l2_rate)
 
-    episodes = 0
+    memory = Memory(100000)
     if render_map:
         root, canvas = init_map()
 
-    for iter in range(15000):
-        actor.eval(), critic.eval()
-        memory = Memory()
-        steps = 0
-        scores = []
-        while steps < 1000:
-            episodes += 1
-            state = env.reset()
-            state = pre_process(state)
-            history = np.stack((state, state, state, state), axis=2)
-            history = np.reshape([history], (84, 84, 4))
 
-            for i in range(3):
-                action = env.action_space.sample()
-                _, reward, done, info = env.step(action)
-                # next_state = pre_process(next_state)
-                # next_state = np.reshape(next_state, (84, 84, 1))
-                # next_history = np.append(next_state, history[:, :, :3],
-                 #                         axis=2)
+    steps = 0
+    scores = []
+    epsilon = 1.0
+    for episode in range(hp.num_episodes):
+        state = env.reset()
+        state = pre_process(state)
+        history = np.stack((state, state, state, state), axis=2)
+        history = np.reshape([history], (84, 84, 4))
+
+        for i in range(3):
+            action = env.action_space.sample()
+            next_state, reward, done, info = env.step(action)
+            next_state = pre_process(next_state)
+            next_state = np.reshape(next_state, (84, 84, 1))
+            history = np.append(next_state, history[:, :, :3], axis=2)
+
+        score = 0
+        prev_life = 20
+        while True:
+            env.render(mode='rgb_array')
+            steps += 1
+
+            qvalue = model(to_tensor(history).unsqueeze(0))
+            action = get_action(epsilon, qvalue, num_actions)
+            next_state, reward, done, info = env.step(action)
 
             observation = info['observation']
             if observation is not None:
-                if "entities" in observation:
-                    entities = observation["entities"]
-                    map = drawMobs(entities)
-                    map = np.array(map)
-                    state = pre_process(map)
-                    # map = np.reshape(map, (84, 84, 1))
+                life = observation['entities'][0]['life']
+                if life < prev_life:
+                    reward = reward + (life - prev_life)
 
-            history = np.stack((state, state, state, state), axis=2)
-            history = np.reshape([history], (84, 84, 4))
-            # input = np.append(history, map, axis=2)
+            next_state = pre_process(next_state)
+            next_state = np.reshape(next_state, (84, 84, 1))
+            next_history = np.append(next_state, history[:, :, :3], axis=2)
+            reward *= 0.1
+            reward += 0.1
 
-            score = 0
-            prev_life = 20
-            while True:
-                env.render(mode='rgb_array')
-                steps += 1
-
-                mu, std, _ = actor(torch.Tensor(history).unsqueeze(0))
-                action = get_action(mu, std)[0]
-                _, reward, done, info = env.step(action)
-
-                observation = info['observation']
-                if observation is not None:
-                    if "entities" in observation:
-                        entities = observation["entities"]
-                        map = drawMobs(entities)
-                        map = np.array(map)
-                        map = pre_process(map)
-                        state = np.reshape(map, (84, 84, 1))
-                    life = observation['entities'][0]['life']
-                    if life < prev_life:
-                        reward = reward + (life - prev_life)
-
-                # next_state = pre_process(next_state)
-                # next_state = np.reshape(next_state, (84, 84, 1))
-                next_history = np.append(state, history[:, :, :3],
-                                         axis=2)
-                # input = np.append(next_history, map, axis=2)
-                reward *= 0.1
-                reward += 0.1
-
-                if done:
-                    mask = 0
-                    reward = 0
-                else:
-                    mask = 1
+            if done:
+                mask = 0
+                reward = 0
+            else:
+                mask = 1
 
 
-                memory.push(next_history, np.array(action), reward, mask)
+            memory.push(history, next_history, action, reward, mask)
 
-                score += reward
-                history = deepcopy(next_history)
+            score += reward
+            history = deepcopy(next_history)
 
-                if done:
-                    print('steps: ', steps, ' score: ', score)
-                    break
-            scores.append(score)
-        score_avg = np.mean(scores)
-        print('{} episode score is {:.2f}'.format(episodes, score_avg))
-        actor.train(), critic.train()
-        batch = memory.sample()
-        train_model(actor, critic, batch, actor_optim, critic_optim)
+            if steps > hp.initial_exploration:
+                epsilon -= 0.00001
+                batch = memory.sample()
+                train_model(model, target_model, batch, optimizer)
 
-        if iter % 100:
-            score_avg = int(score_avg)
+            if steps % hp.update_target:
+                update_target_model(model, target_model)
+
+            if done:
+                print('episode: ', episode, 'steps: ', steps, 'epsilon: ', round(epsilon, 4), 
+                      ' score: ', score)
+                break
+
+
+        if episode % hp.save_freq:
+            score = int(score)
             directory = 'save_model/'
             if not os.path.exists(directory):
                 os.makedirs(directory)
-            torch.save(actor.state_dict(), 'save_model/' + str(score_avg) +
-                       'actor.pt')
-            torch.save(critic.state_dict(), 'save_model/' + str(score_avg) +
-                       'critic.pt')
+            torch.save(model.state_dict(), 'save_model/' + str(score) +
+                       'model.pt')

@@ -11,22 +11,23 @@ class QNet(nn.Module):
         super(QNet, self).__init__()
         self.conv1 = nn.Conv2d(in_channels=4,
                                out_channels=16,
-                               kernel_size=8,
-                               stride=4)
+                               kernel_size=5,
+                               stride=2)
 
         self.conv2 = nn.Conv2d(in_channels=16,
                                out_channels=32,
-                               kernel_size=4,
+                               kernel_size=5,
                                stride=2)
 
         self.conv3 = nn.Conv2d(in_channels=32,
-                               out_channels=64,
-                               kernel_size=3,
-                               stride=1)
+                               out_channels=32,
+                               kernel_size=5,
+                               stride=2)
 
-        self.fc = nn.Linear(7*7*64, num_outputs)
-        self.fc.weight.data.mul_(0.1)
-        self.fc.bias.data.mul_(0.0)
+        self.fc1 = nn.Linear(7*7*32, 512)
+        self.fc2 = nn.Linear(512, num_outputs)
+        self.fc2.weight.data.mul_(0.1)
+        self.fc2.bias.data.mul_(0.0)
 
     def forward(self, x):
         x = x.permute(0, 3, 1, 2)
@@ -34,5 +35,6 @@ class QNet(nn.Module):
         x = F.relu(self.conv2(x))
         x = F.relu(self.conv3(x))
         x = x.view(x.size(0), -1)
-        q_value = self.fc(x)
+        x = F.relu(self.fc1(x))
+        q_value = self.fc2(x)
         return q_value
