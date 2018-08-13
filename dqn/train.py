@@ -67,10 +67,6 @@ if __name__=="__main__":
             next_state, reward, done, info = env.step(action)
 
             observation = info['observation']
-            if observation is not None:
-                life = observation['entities'][0]['life']
-                if life < prev_life:
-                    reward = reward + (life - prev_life)
 
             next_state = pre_process(next_state)
             next_state = np.reshape(next_state, (84, 84, 1))
