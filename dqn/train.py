@@ -87,7 +87,8 @@ if __name__=="__main__":
             history = deepcopy(next_history)
 
             if steps > hp.initial_exploration:
-                epsilon -= 0.00001
+                if epsilon < 0.1:
+                    epsilon -= 0.00001
                 batch = memory.sample()
                 train_model(model, target_model, batch, optimizer)
 
